@@ -13,11 +13,21 @@ export default function Checkout() {
   const [onlineSuccess, setOnlineSuccess] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [placing, setPlacing] = useState(false);
+  const [address, setAddress] = useState({
+    name: user?.name || "",
+    phone: "",
+    line1: "",
+    line2: "",
+    city: "",
+    state: "",
+    pincode: "",
+  });
 
   const subtotal = useMemo(() => cart?.items?.reduce((s, it) => s + it.unitPrice * it.qty, 0) || 0, [cart]);
 
   useEffect(() => {
     if (!user) return;
+    setAddress((prev) => ({ ...prev, name: user.name || prev.name }));
     (async () => {
       const data = await api<{ cart: Cart }>("/api/cart");
       setCart(data.cart);
@@ -33,7 +43,7 @@ export default function Checkout() {
         body: JSON.stringify({
           paymentMethod,
           paymentSuccess: paymentMethod === "ONLINE" ? onlineSuccess : undefined,
-          shippingAddress: { name: user?.name },
+          shippingAddress: address,
         }),
       });
       nav(`/orders/${data.order._id}`);
@@ -58,6 +68,54 @@ export default function Checkout() {
           <div className="mt-2 flex justify-between text-sm">
             <span className="text-slate-600">Subtotal</span>
             <span className="font-extrabold">₹{subtotal.toFixed(2)}</span>
+          </div>
+        </Card>
+
+        <Card>
+          <div className="font-bold">Delivery address</div>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <input
+              className="rounded-xl border px-4 py-3"
+              placeholder="Full name"
+              value={address.name}
+              onChange={(e) => setAddress((prev) => ({ ...prev, name: e.target.value }))}
+            />
+            <input
+              className="rounded-xl border px-4 py-3"
+              placeholder="Phone"
+              value={address.phone}
+              onChange={(e) => setAddress((prev) => ({ ...prev, phone: e.target.value }))}
+            />
+            <input
+              className="rounded-xl border px-4 py-3 md:col-span-2"
+              placeholder="Address line 1"
+              value={address.line1}
+              onChange={(e) => setAddress((prev) => ({ ...prev, line1: e.target.value }))}
+            />
+            <input
+              className="rounded-xl border px-4 py-3 md:col-span-2"
+              placeholder="Address line 2 (optional)"
+              value={address.line2}
+              onChange={(e) => setAddress((prev) => ({ ...prev, line2: e.target.value }))}
+            />
+            <input
+              className="rounded-xl border px-4 py-3"
+              placeholder="City"
+              value={address.city}
+              onChange={(e) => setAddress((prev) => ({ ...prev, city: e.target.value }))}
+            />
+            <input
+              className="rounded-xl border px-4 py-3"
+              placeholder="State"
+              value={address.state}
+              onChange={(e) => setAddress((prev) => ({ ...prev, state: e.target.value }))}
+            />
+            <input
+              className="rounded-xl border px-4 py-3 md:col-span-2"
+              placeholder="Pincode"
+              value={address.pincode}
+              onChange={(e) => setAddress((prev) => ({ ...prev, pincode: e.target.value }))}
+            />
           </div>
         </Card>
 

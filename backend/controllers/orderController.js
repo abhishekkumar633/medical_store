@@ -4,6 +4,7 @@ import Offer from "../models/Offer.js";
 import Order from "../models/Order.js";
 import StockLedger from "../models/StockLedger.js";
 import { makeInvoiceNo } from "../utils/invoice.js";
+import { sendMail } from "../utils/mailer.js";
 
 function calcSubtotal(items) {
   return items.reduce((sum, it) => sum + it.unitPrice * it.qty, 0);
@@ -28,6 +29,9 @@ function calcDiscount(subtotal, offer) {
 export async function placeOrder(req, res, next) {
   try {
     const { paymentMethod, paymentSuccess, shippingAddress, notes } = req.body || {};
+    if (!shippingAddress?.line1 || !shippingAddress?.city || !shippingAddress?.state || !shippingAddress?.pincode) {
+      return res.status(400).json({ message: "Complete shipping address is required" });
+    }
     if (!paymentMethod || !["COD", "ONLINE"].includes(String(paymentMethod))) {
       return res.status(400).json({ message: "paymentMethod must be COD or ONLINE" });
     }
@@ -99,6 +103,29 @@ export async function placeOrder(req, res, next) {
       orderStatus: isOnline ? (paid ? "CONFIRMED" : "ON_HOLD") : "CONFIRMED",
       shippingAddress: shippingAddress || {},
       notes: notes ? String(notes) : undefined,
+    });
+
+    const addressText = [
+      shippingAddress.name,
+      shippingAddress.phone,
+      shippingAddress.line1,
+      shippingAddress.line2,
+      `${shippingAddress.city}, ${shippingAddress.state}`,
+      shippingAddress.pincode,
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    // Fire-and-forget mail notification; order should not fail on mail error.
+    sendMail({
+      to: req.user.email,
+      subject: `Order placed successfully (${order.invoiceNo})`,
+      text: `Hello ${req.user.name}, your order ${order.invoiceNo} has been placed successfully. Total: INR ${order.total.toFixed(2)}. Delivery address: ${addressText}.`,
+      html: `<p>Hello ${req.user.name},</p><p>Your order <strong>${order.invoiceNo}</strong> has been placed successfully.</p><p><strong>Total:</strong> INR ${order.total.toFixed(
+        2
+      )}</p><p><strong>Delivery address:</strong> ${addressText}</p>`,
+    }).catch((mailErr) => {
+      console.error("Order mail failed:", mailErr?.message || mailErr);
     });
 
     // Clear cart after placing
